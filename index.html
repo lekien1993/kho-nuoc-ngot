@@ -1,39 +1,128 @@
-
 <!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Kiểm kho nước</title>
-  <link rel="stylesheet" href="style.css" />
+  <title>Kho nước ngọt</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      max-width: 600px;
+      margin: auto;
+      background: #f9f9f9;
+    }
+    input[type="number"], input[type="text"] {
+      width: 100%;
+      padding: 5px;
+      box-sizing: border-box;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+      background: white;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+    }
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      background: #1e88e5;
+      color: white;
+      border: none;
+      border-radius: 4px;
+    }
+    @media (max-width: 600px) {
+      table, thead, tbody, th, td, tr {
+        display: block;
+      }
+      thead tr {
+        display: none;
+      }
+      td {
+        padding: 10px;
+        position: relative;
+        border: none;
+        border-bottom: 1px solid #ccc;
+      }
+      td::before {
+        content: attr(data-label);
+        font-weight: bold;
+        display: block;
+        margin-bottom: 5px;
+      }
+    }
+  </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Kiểm kho nước</h1>
-    <form id="inventory-form">
-      <label for="nhanvien">Tên nhân viên:</label>
-      <input type="text" id="nhanvien" name="nhanvien" required />
+  <h2>Nhập liệu kho nước ngọt</h2>
 
-      <label for="nuoc">Loại nước:</label>
-      <select id="nuoc" name="nuoc">
-        <option value="Coca">Coca</option>
-        <option value="Pepsi">Pepsi</option>
-        <option value="Sting">Sting</option>
-        <option value="7Up">7Up</option>
-        <option value="Cam ép">Cam ép</option>
-        <option value="Nước suối">Nước suối</option>
-      </select>
+  <form id="kho-form">
+    <label for="nhanvien">Tên nhân viên:</label>
+    <input type="text" id="nhanvien" name="nhanvien" required />
 
-      <label for="nhapkho">Nhập kho:</label>
-      <input type="number" id="nhapkho" name="nhapkho" value="0" />
+    <table>
+      <thead>
+        <tr>
+          <th>Loại nước</th>
+          <th>Nhập kho</th>
+          <th>Tồn kho</th>
+        </tr>
+      </thead>
+      <tbody id="bang-nuoc"></tbody>
+    </table>
 
-      <label for="tonkho">Tồn kho:</label>
-      <input type="number" id="tonkho" name="tonkho" required />
+    <button type="submit">Gửi dữ liệu</button>
+  </form>
 
-      <button type="submit">Gửi</button>
-    </form>
-    <p id="status"></p>
-  </div>
-  <script src="script.js"></script>
+  <script>
+    const loaiNuoc = ["Coca", "Pepsi", "7Up", "Cam ép", "Sting"];
+
+    const tbody = document.getElementById("bang-nuoc");
+
+    loaiNuoc.forEach((nuoc, index) => {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td data-label="Loại nước">${nuoc}</td>
+        <td data-label="Nhập kho"><input type="number" name="nhapkho_${index}" placeholder="0" /></td>
+        <td data-label="Tồn kho"><input type="number" name="tonkho_${index}" placeholder="0" required /></td>
+      `;
+      tbody.appendChild(row);
+    });
+
+    document.getElementById("kho-form").addEventListener("submit", function (e) {
+      e.preventDefault();
+
+      const form = e.target;
+      const formData = {
+        nhanvien: form.nhanvien.value,
+        dulieu: []
+      };
+
+      loaiNuoc.forEach((nuoc, index) => {
+        const nhap = form[`nhapkho_${index}`].value || 0;
+        const ton = form[`tonkho_${index}`].value || 0;
+        formData.dulieu.push({ nuoc, nhap: Number(nhap), ton: Number(ton) });
+      });
+
+      fetch("https://script.google.com/macros/s/AKfycbzdmBakNypA8wMUtvazF6D_cu0N9c9l3KQqRkeIf65msHo3-TCt8RWhSL1rY7wBZnlc/exec", {
+        method: "POST",
+        body: JSON.stringify(formData),
+        headers: { "Content-Type": "application/json" }
+      })
+        .then((res) => res.text())
+        .then((msg) => {
+          alert("Đã gửi dữ liệu!");
+          form.reset();
+        })
+        .catch((err) => {
+          alert("Lỗi khi gửi: " + err.message);
+        });
+    });
+  </script>
 </body>
 </html>
