@@ -1,128 +1,85 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Kho nước ngọt</title>
-  <style>
-    body {
-      font-family: sans-serif;
-      padding: 20px;
-      max-width: 600px;
-      margin: auto;
-      background: #f9f9f9;
+  <meta charset="UTF-8">
+  <title>Quản lý kho nước</title>
+  <script type="module">
+    // Firebase SDK imports
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, push, get, child } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyC4pUOS37SM01K2bqUWX-RB2qkDrD38Oww",
+      authDomain: "khonuoc-8044c.firebaseapp.com",
+      databaseURL: "https://khonuoc-8044c-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "khonuoc-8044c",
+      storageBucket: "khonuoc-8044c.appspot.com",
+      messagingSenderId: "585367282568",
+      appId: "1:585367282568:web:f38a5816fdc70a59e2103d"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const dbRef = ref(db);
+
+    // Gửi thông báo Telegram
+    function sendTelegramMessage(message) {
+      const chatId = '460122343';
+      const token = '8177155010:AAHRAOmIzD04aC1DoK2xekVv3l6NNjwoXRo';
+      const url = `https://api.telegram.org/bot${token}/sendMessage`;
+
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text: message })
+      });
     }
-    input[type="number"], input[type="text"] {
-      width: 100%;
-      padding: 5px;
-      box-sizing: border-box;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 15px;
-      background: white;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 8px;
-      text-align: left;
-    }
-    button {
-      margin-top: 20px;
-      padding: 10px 20px;
-      background: #1e88e5;
-      color: white;
-      border: none;
-      border-radius: 4px;
-    }
-    @media (max-width: 600px) {
-      table, thead, tbody, th, td, tr {
-        display: block;
+
+    // Lưu dữ liệu kiểm kho
+    async function saveInventory() {
+      const ten = document.getElementById("ten").value;
+      const loai = document.getElementById("loai").value;
+      const ton = parseInt(document.getElementById("ton").value);
+
+      if (!ten || !loai || isNaN(ton)) {
+        alert("Vui lòng điền đầy đủ thông tin.");
+        return;
       }
-      thead tr {
-        display: none;
+
+      await push(ref(db, 'kho'), { ten, loai, ton, timestamp: Date.now() });
+
+      if (ton < 10) {
+        sendTelegramMessage(`⚠️ Cảnh báo: Tồn kho sản phẩm "${ten}" còn dưới 10 (${ton}).`);
       }
-      td {
-        padding: 10px;
-        position: relative;
-        border: none;
-        border-bottom: 1px solid #ccc;
-      }
-      td::before {
-        content: attr(data-label);
-        font-weight: bold;
-        display: block;
-        margin-bottom: 5px;
-      }
+
+      sendTelegramMessage(`✅ Nhân viên đã hoàn tất kiểm kho cho sản phẩm "${ten}".`);
+      alert("Đã lưu dữ liệu kiểm kho.");
     }
-  </style>
+
+    // Trích xuất log bán hàng từ Telegram (ví dụ thủ công)
+    window.getHistoryLog = async function(date) {
+      const snapshot = await get(child(dbRef, `banhang`));
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        let msg = `📦 Log bán hàng ngày ${date}:\n`;
+        for (let key in data) {
+          if (data[key].date === date) {
+            msg += `• ${data[key].ten}: ${data[key].soluong} sp\n`;
+          }
+        }
+        sendTelegramMessage(msg);
+      } else {
+        sendTelegramMessage(`❗Không có dữ liệu bán hàng ngày ${date}.`);
+      }
+    };
+  </script>
 </head>
 <body>
-  <h2>Nhập liệu kho nước ngọt</h2>
-
-  <form id="kho-form">
-    <label for="nhanvien">Tên nhân viên:</label>
-    <input type="text" id="nhanvien" name="nhanvien" required />
-
-    <table>
-      <thead>
-        <tr>
-          <th>Loại nước</th>
-          <th>Nhập kho</th>
-          <th>Tồn kho</th>
-        </tr>
-      </thead>
-      <tbody id="bang-nuoc"></tbody>
-    </table>
-
-    <button type="submit">Gửi dữ liệu</button>
-  </form>
-
-  <script>
-    const loaiNuoc = ["Coca", "Pepsi", "7Up", "Cam ép", "Sting"];
-
-    const tbody = document.getElementById("bang-nuoc");
-
-    loaiNuoc.forEach((nuoc, index) => {
-      const row = document.createElement("tr");
-      row.innerHTML = `
-        <td data-label="Loại nước">${nuoc}</td>
-        <td data-label="Nhập kho"><input type="number" name="nhapkho_${index}" placeholder="0" /></td>
-        <td data-label="Tồn kho"><input type="number" name="tonkho_${index}" placeholder="0" required /></td>
-      `;
-      tbody.appendChild(row);
-    });
-
-    document.getElementById("kho-form").addEventListener("submit", function (e) {
-      e.preventDefault();
-
-      const form = e.target;
-      const formData = {
-        nhanvien: form.nhanvien.value,
-        dulieu: []
-      };
-
-      loaiNuoc.forEach((nuoc, index) => {
-        const nhap = form[`nhapkho_${index}`].value || 0;
-        const ton = form[`tonkho_${index}`].value || 0;
-        formData.dulieu.push({ nuoc, nhap: Number(nhap), ton: Number(ton) });
-      });
-
-      fetch("https://script.google.com/macros/s/AKfycbwqNqNRgzRwK4ZNc0Bdy_JaF3St6qqHuY1O_s-TD8Wsb4_9o7m52iB1SaRG6SuUUxOB/exec", {
-        method: "POST",
-        body: JSON.stringify(formData),
-        headers: { "Content-Type": "application/json" }
-      })
-        .then((res) => res.text())
-        .then((msg) => {
-          alert("Đã gửi dữ liệu!");
-          form.reset();
-        })
-        .catch((err) => {
-          alert("Lỗi khi gửi: " + err.message);
-        });
-    });
-  </script>
+  <h2>Quản lý tồn kho</h2>
+  <input id="ten" placeholder="Tên sản phẩm"><br>
+  <input id="loai" placeholder="Loại sản phẩm"><br>
+  <input id="ton" type="number" placeholder="Tồn kho"><br>
+  <button onclick="saveInventory()">Lưu dữ liệu</button>
 </body>
 </html>
